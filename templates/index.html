@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Conciliador Pro</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; padding: 40px; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); width: 100%; max-width: 500px; }
+        h2 { color: #1a73e8; margin-top: 0; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; color: #444; }
+        input[type="file"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
+
+        .btn { background: #1a73e8; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; }
+        .btn:hover { background: #1557b0; }
+
+        .error { background: #fdecea; color: #d93025; padding: 15px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #f5c2c7; }
+
+        .resumen { background: #e8f0fe; border: 1px solid #1a73e8; padding: 20px; border-radius: 8px; margin-top: 25px; }
+        .resumen h3 { margin-top: 0; color: #185abc; font-size: 18px; }
+        .resumen ul { list-style: none; padding: 0; }
+        .resumen li { margin-bottom: 8px; display: flex; justify-content: space-between; border-bottom: 1px solid #d0e1fd; padding-bottom: 4px; }
+        .btn-download { background: #34a853; margin-top: 15px; display: block; text-align: center; text-decoration: none; color: white; padding: 12px; border-radius: 6px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Conciliación de Cheques</h2>
+
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <div class="form-group">
+            <label>Excel SAP (Columnas: 'Número de Cheque', 'CUIT Librador', 'Imp. moneda local')</label>
+            <input type="file" name="file_sap" required>
+        </div>
+        <div class="form-group">
+            <label>Excel Banco (Columnas: 'Nro', 'CUIT-CUIL CDI', 'Monto')</label>
+            <input type="file" name="file_bank" required>
+        </div>
+        <button type="submit" class="btn">Procesar Archivos</button>
+    </form>
+
+    {% if resumen %}
+    <div class="resumen">
+        <h3>📊 Resumen de la Operación</h3>
+        <ul>
+            <li><span>Total SAP:</span> <strong>{{ resumen.total_sap }}</strong></li>
+            <li><span>Total Banco:</span> <strong>{{ resumen.total_banco }}</strong></li>
+            <li><span>✅ Conciliados OK:</span> <strong>{{ resumen.conciliados }}</strong></li>
+            <li><span>❌ Pendientes:</span> <strong>{{ resumen.dif_monto + resumen.solo_banco }}</strong></li>
+        </ul>
+        <a href="/download/{{ file_id }}" class="btn-download">Descargar Reporte Detallado</a>
+    </div>
+    {% endif %}
+</div>
+
+</body>
+</html>
