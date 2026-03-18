@@ -11,8 +11,8 @@ app.secret_key = "conciliacion_secret_key" # Necesario para guardar datos tempor
 cache_archivos = {}
 
 # --- CONFIGURACIÓN DE COLUMNAS ---
-COLUMNAS_SAP = ['Número de Cheque', 'CUIT Librador', 'Imp. moneda local']
-COLUMNAS_BANCO = ['Nro', 'CUIT-CUIL CDI', 'Monto']
+COLUMNAS_SAP = ('Número de Cheque', 'CUIT Librador', 'Imp. moneda local')
+COLUMNAS_BANCO = ('Nro', 'CUIT-CUIL CDI', 'CUIT Endosante', 'Monto')
 
 def normalizar_cuit(cuit):
     if pd.isna(cuit): return ""
@@ -61,12 +61,25 @@ def upload():
             return render_template('index.html', error=(error_sap or "") + " " + (error_bank or ""))
 
         # 2. Procesamiento
-        for df, nro, cuit, monto in [(df_sap, 'Número de Cheque', 'CUIT Librador', 'Imp. moneda local'),
-                                     (df_bank, 'Nro', 'CUIT-CUIL CDI', 'Monto')]:
-            df['nro_clean'] = df[nro].apply(normalizar_cheque)
-            df['cuit_clean'] = df[cuit].apply(normalizar_cuit)
-            df['monto_clean'] = df[monto].apply(normalizar_monto)
-            df['key'] = df['nro_clean'] + "_" + df['cuit_clean']
+
+        nro_sap, cuit_sap, monto_sap = COLUMNAS_SAP
+        df_sap['nro_clean'] = df_sap[nro_sap].apply(normalizar_cheque)
+        df_sap['cuit_clean'] = df_sap[cuit_sap].apply(normalizar_cuit)
+        df_sap['monto_clean'] = df_sap[monto_sap].apply(normalizar_monto)
+        df_sap['key'] = df_sap['nro_clean'] + "_" + df_sap['cuit_clean']
+
+        nro_bk, cuit_bk, cuit_endo, monto_bk = COLUMNAS_BANCO
+        df_bank['nro_clean'] = df_bank[nro_bk].apply(normalizar_cheque)
+
+        def elegir_cuit(fila):
+            # pd.notna() detecta NaNs, y strip() != "" detecta celdas con espacios
+            if pd.notna(fila[cuit_endo]) and str(fila[cuit_endo]).strip() not in ["", "-"]:
+                return normalizar_cuit(fila[cuit_endo])
+            return normalizar_cuit(fila[cuit_bk])
+
+        df_bank['cuit_clean'] = df_bank.apply(elegir_cuit, axis=1)
+        df_bank['monto_clean'] = df_bank[monto_bk].apply(normalizar_monto)
+        df_bank['key'] = df_bank['nro_clean'] + "_" + df_bank['cuit_clean']
 
         df_merge = pd.merge(df_sap, df_bank, on='key', suffixes=('_SAP', '_BANCO'))
 
@@ -75,7 +88,7 @@ def upload():
         solo_banco = df_bank[~df_bank['key'].isin(df_sap['key'])].copy()
         diff_monto = df_merge[abs(df_merge['monto_clean_SAP'] - df_merge['monto_clean_BANCO']) > 0.01].copy()
 
-        pendientes = pd.concat([solo_sap, solo_banco, diff_monto], ignore_index=True)
+        pendientes = pd.concat([solo_banco, diff_monto], ignore_index=True)
 
         # 3. Guardar resumen para mostrar
         resumen = {
@@ -112,4 +125,4 @@ def download(file_id):
     return "Archivo no encontrado o expirado", 404
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
